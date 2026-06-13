@@ -9,12 +9,13 @@ const (
 	BookingStatusAwaitsConfirmation BookingStatus = "awaits_confirmation"
 	BookingStatusConfirmed          BookingStatus = "confirmed"
 	BookingStatusCancelled          BookingStatus = "cancelled"
+	BookingStatusCancellationPending BookingStatus = "cancellation_pending"
 )
 
 // IsValid проверяет, что статус принадлежит допустимому множеству.
 func (s BookingStatus) IsValid() bool {
 	switch s {
-	case BookingStatusAwaitsConfirmation, BookingStatusConfirmed, BookingStatusCancelled:
+	case BookingStatusAwaitsConfirmation, BookingStatusConfirmed, BookingStatusCancelled, BookingStatusCancellationPending:
 		return true
 	default:
 		return false
@@ -31,6 +32,8 @@ type Booking struct {
 	startDate  time.Time
 	endDate    time.Time
 	createdAt  time.Time
+	previousStatus *BookingStatus
+	cancelCommandSentAt *time.Time 
 }
 
 func (b *Booking) ID() int64             { return b.id }
@@ -40,6 +43,8 @@ func (b *Booking) ResourceID() int64     { return b.resourceID }
 func (b *Booking) StartDate() time.Time  { return b.startDate }
 func (b *Booking) EndDate() time.Time    { return b.endDate }
 func (b *Booking) CreatedAt() time.Time  { return b.createdAt }
+func (b *Booking) PreviousStatus() *BookingStatus {return  b.previousStatus}
+func (b *Booking) CancelCommandSentAt() *time.Time {return b.cancelCommandSentAt}
 
 // NewBooking создаёт новое бронирование в статусе AwaitsConfirmation.
 func NewBooking(userID, resourceID int64, startDate, endDate time.Time) (*Booking, error) {
@@ -98,6 +103,52 @@ func (b *Booking) Cancel(today time.Time) error {
 	}
 }
 
+
+func (b *Booking) StartCancellation(today time.Time) error {
+	switch b.status {
+	case BookingStatusAwaitsConfirmation:
+		
+	case BookingStatusConfirmed:
+		if !b.startDate.After(today) {
+			return ErrCannotCancelPastBooking
+		}
+	case BookingStatusCancellationPending:
+		return nil 
+	default:
+		return ErrInvalidStatusTransition
+	}
+
+	prevStatus := b.status
+	b.previousStatus = &prevStatus
+	b.status = BookingStatusCancellationPending
+	b.cancelCommandSentAt = &[]time.Time{time.Now()}[0]
+	return nil
+}
+
+
+func (b *Booking) CompleteCancellation() error {
+	if b.status != BookingStatusCancellationPending {
+		return ErrInvalidStatusTransition
+	}
+	b.status = BookingStatusCancelled
+	b.previousStatus = nil
+	b.cancelCommandSentAt = nil
+	return nil
+}
+
+func (b *Booking) RollbackCancellation() error {
+	if b.status != BookingStatusCancellationPending {
+		return ErrInvalidStatusTransition
+	}
+	if b.previousStatus == nil {
+		return ErrInvalidStatusTransition
+	}
+	b.status = *b.previousStatus
+	b.previousStatus = nil
+	b.cancelCommandSentAt = nil
+	return nil
+}
+
 // RestoreBooking восстанавливает Booking из данных хранилища.
 // Используется только в слое storage для маппинга строк БД на доменный объект.
 func RestoreBooking(
@@ -105,6 +156,8 @@ func RestoreBooking(
 	status BookingStatus,
 	userID, resourceID int64,
 	startDate, endDate, createdAt time.Time,
+	previousStatus *BookingStatus,    
+	cancelCommandSentAt *time.Time,   
 ) *Booking {
 	return &Booking{
 		id:         id,
@@ -114,5 +167,7 @@ func RestoreBooking(
 		startDate:  startDate,
 		endDate:    endDate,
 		createdAt:  createdAt,
+		previousStatus:	previousStatus,      
+		cancelCommandSentAt:	cancelCommandSentAt, 
 	}
 }
