@@ -54,5 +54,19 @@ type ProblemDetails struct {
 	Detail string `json:"detail,omitempty"`
 }
 
+//StatiscticsResponse -- агрегированная статистика
+type StatiscticsResponse struct{
+	TotalBookings   int64                    `json:"total_bookings"`
+	StatusBreakdown map[string]int64         `json:"status_breakdown"`
+	TopResources    []ResourceStats          `json:"top_resources"`
+}
+
+// ResourceStats -- статистика по ресурсу
+type ResourceStats struct {
+	ResourceID   int64  `json:"resource_id"`
+	ResourceName string `json:"resource_name"`
+	BookingCount int64  `json:"booking_count"`
+}
+
 // DateFormat -- формат даты для JSON-сериализации.
 const DateFormat = "2006-01-02"

@@ -85,6 +85,34 @@ func (q *BookingsQueries) GetByFilter(ctx context.Context, req dto.GetBookingsBy
 	}, nil
 }
 
+// GetStatistics возвращает агрегированную статистику бронирований за период
+func (q *BookingsQueries) GetStatistics(ctx context.Context, dateFrom, dateTo string) (dto.StatiscticsResponse, error) {
+	result, err := q.repo.GetStatistics(ctx, dateFrom, dateTo)
+	if err != nil {
+		return dto.StatiscticsResponse{}, fmt.Errorf("получение статистики: %w", err)
+	}
+
+	statusBreakdown := make(map[string]int64, len(result.StatusBreakdown))
+	for status, count := range result.StatusBreakdown {
+		statusBreakdown[string(status)] = count
+	}
+
+	topResources := make([]dto.ResourceStats, 0, len(result.TopResources))
+	for _, resource := range result.TopResources {
+		topResources = append(topResources, dto.ResourceStats{
+			ResourceID:   resource.ResourceID,
+			ResourceName: resource.ResourceName,
+			BookingCount: resource.BookingCount,
+		})
+	}
+
+	return dto.StatiscticsResponse{
+		TotalBookings:   result.TotalBookings,
+		StatusBreakdown: statusBreakdown,
+		TopResources:    topResources,
+	}, nil
+}
+
 // mapBookingToResponse конвертирует доменный объект в DTO ответа.
 func mapBookingToResponse(b *models.Booking) dto.BookingResponse {
 	return dto.BookingResponse{
@@ -97,3 +125,6 @@ func mapBookingToResponse(b *models.Booking) dto.BookingResponse {
 		CreatedAt:  b.CreatedAt().Format("2006-01-02T15:04:05Z07:00"),
 	}
 }
+
+
+

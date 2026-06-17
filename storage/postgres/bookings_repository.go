@@ -179,3 +179,55 @@ func (r *BookingsRepository) scanBookingFromRows(rows pgx.Rows) (*models.Booking
 
 	return models.RestoreBooking(id, models.BookingStatus(status), userID, resourceID, startDate, endDate, createdAt, (*models.BookingStatus)(previousStatus), cancelCommandSentAt), nil
 }
+
+
+
+// GetStatistics получает агрегированную статистику бронирований
+func (r *BookingsRepository) GetStatistics(ctx context.Context, dateFrom, dateTo string) (*models.StatisticsResult, error) {
+	result := &models.StatisticsResult{
+		StatusBreakdown: make(map[models.BookingStatus]int64, len(models.AllBookingStatuses())),
+		TopResources:    make([]models.ResourceBookingCount, 0),
+	}
+
+	err := r.pool.QueryRow(ctx, queryCountBookingsByCreatedAtRange, dateFrom, dateTo).Scan(&result.TotalBookings)
+	if err != nil {
+		return nil, fmt.Errorf("подсчёт бронирований: %w", err)
+	}
+
+	rows, err := r.pool.Query(ctx, queryStatusBreakdownByCreatedAtRange, dateFrom, dateTo)
+	if err != nil {
+		return nil, fmt.Errorf("разбивка по статусам: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var status string
+		var count int64
+		if err := rows.Scan(&status, &count); err != nil {
+			return nil, fmt.Errorf("сканирование статуса: %w", err)
+		}
+		result.StatusBreakdown[models.BookingStatus(status)] = count
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("итерация по статусам: %w", err)
+	}
+
+	resourceRows, err := r.pool.Query(ctx, queryTopResourcesByCreatedAtRange, dateFrom, dateTo)
+	if err != nil {
+		return nil, fmt.Errorf("топ ресурсов: %w", err)
+	}
+	defer resourceRows.Close()
+
+	for resourceRows.Next() {
+		var res models.ResourceBookingCount
+		if err := resourceRows.Scan(&res.ResourceID, &res.BookingCount); err != nil {
+			return nil, fmt.Errorf("сканирование ресурса: %w", err)
+		}
+		result.TopResources = append(result.TopResources, res)
+	}
+	if err := resourceRows.Err(); err != nil {
+		return nil, fmt.Errorf("итерация по ресурсам: %w", err)
+	}
+
+	return result, nil
+}

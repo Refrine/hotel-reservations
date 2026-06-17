@@ -23,3 +23,7 @@ CREATE INDEX idx_bookings_id_desc ON bookings (id DESC);
 
 -- +goose Down
 DROP TABLE IF EXISTS bookings;
+
+-- +goose Up
+ALTER TABLE bookings 
+ADD COLUMN IF NOT EXISTS previous_status VARCHAR(30);

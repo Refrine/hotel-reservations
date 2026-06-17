@@ -39,4 +39,34 @@ const (
 		ORDER BY created_at ASC
 		LIMIT $1
 		FOR UPDATE SKIP LOCKED`
+
+	queryCountBookingsByCreatedAtRange = `
+		SELECT COUNT(*)
+		FROM bookings
+		WHERE created_at >= $1::date
+		  AND created_at < $2::date + INTERVAL '1 day'`
+
+	queryStatusBreakdownByCreatedAtRange = `
+		SELECT s.status, COALESCE(COUNT(b.id), 0)
+		FROM (VALUES
+			('awaits_confirmation'::varchar),
+			('confirmed'::varchar),
+			('cancelled'::varchar),
+			('cancellation_pending'::varchar)
+		) AS s(status)
+		LEFT JOIN bookings b
+			ON b.status = s.status
+			AND b.created_at >= $1::date
+			AND b.created_at < $2::date + INTERVAL '1 day'
+		GROUP BY s.status
+		ORDER BY s.status`
+
+	queryTopResourcesByCreatedAtRange = `
+		SELECT resource_id, COUNT(*) AS booking_count
+		FROM bookings
+		WHERE created_at >= $1::date
+		  AND created_at < $2::date + INTERVAL '1 day'
+		GROUP BY resource_id
+		ORDER BY booking_count DESC, resource_id ASC
+		LIMIT 5`
 )
