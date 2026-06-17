@@ -32,8 +32,11 @@ type Booking struct {
 	startDate  time.Time
 	endDate    time.Time
 	createdAt  time.Time
+	updatedAt time.Time
 	previousStatus *BookingStatus
 	cancelCommandSentAt *time.Time 
+	CancellationRequestedAt *time.Time
+	CancellationReason      *string
 }
 
 func (b *Booking) ID() int64             { return b.id }
@@ -72,12 +75,23 @@ func NewBooking(userID, resourceID int64, startDate, endDate time.Time) (*Bookin
 }
 
 // Confirm подтверждает бронирование.
-// Допустимый переход: AwaitsConfirmation -> Confirmed.
+// Допустимые переходы:
+//   - AwaitsConfirmation -> Confirmed
+//   - CancellationPending -> Confirmed (race condition: Catalog подтвердил, пока ожидалась отмена)
 func (b *Booking) Confirm() error {
-	if b.status != BookingStatusAwaitsConfirmation {
+	if b.status != BookingStatusAwaitsConfirmation && b.status != BookingStatusCancellationPending {
 		return ErrInvalidStatusTransition
 	}
+
+	if b.status == BookingStatusCancellationPending {
+		b.previousStatus = nil
+		b.cancelCommandSentAt = nil
+		b.CancellationRequestedAt = nil
+		b.CancellationReason = nil
+	}
+
 	b.status = BookingStatusConfirmed
+	b.updatedAt = time.Now()
 	return nil
 }
 

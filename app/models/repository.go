@@ -1,6 +1,9 @@
 package models
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 // BookingRepository -- интерфейс репозитория бронирований.
 type BookingRepository interface {
@@ -22,7 +25,13 @@ type BookingRepository interface {
 
 	// GetStatistics возвращает агрегированную статистику бронирований за период
 	GetStatistics(ctx context.Context, dateFrom, dateTo string) (*StatisticsResult, error)
+
+	GetCancellationPendingOlderThan(ctx context.Context, olderThan time.Duration, limit int) ([]Booking, error)
+
+	
 }
+
+
 
 // BookingFilter содержит параметры фильтрации и пагинации.
 type BookingFilter struct {

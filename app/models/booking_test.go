@@ -48,6 +48,8 @@ func TestConfirm_FromAwaitsConfirmation(t *testing.T) {
 	assert.Equal(t, models.BookingStatusConfirmed, booking.Status())
 }
 
+
+
 func TestConfirm_FromConfirmed_Error(t *testing.T) {
 	booking := createTestBooking(t)
 	_ = booking.Confirm()

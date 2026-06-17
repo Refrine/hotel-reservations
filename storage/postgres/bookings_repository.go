@@ -231,3 +231,50 @@ func (r *BookingsRepository) GetStatistics(ctx context.Context, dateFrom, dateTo
 
 	return result, nil
 }
+
+
+func (r *BookingsRepository) GetCancellationPendingOlderThan(ctx context.Context, olderThan time.Duration, limit int) ([]models.Booking, error) {
+	cutoff := time.Now().Add(-olderThan)
+
+	// Запрос должен возвращать те же столбцы, что и scanBookingFromRows ожидает.
+	query := `
+	SELECT id, status, user_id, resource_id, start_date, end_date, created_at
+	FROM bookings
+	WHERE status = 'cancellation_pending' AND updated_at <= $1
+	ORDER BY updated_at ASC
+	LIMIT $2
+	FOR UPDATE SKIP LOCKED
+	`
+
+	// Открываем транзакцию, чтобы использовать FOR UPDATE SKIP LOCKED корректно.
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("начало транзакции: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	rows, err := tx.Query(ctx, query, cutoff, limit)
+	if err != nil {
+		return nil, fmt.Errorf("запрос зависших отмен: %w", err)
+	}
+	defer rows.Close()
+
+	var res []models.Booking
+	for rows.Next() {
+		booking, err := r.scanBookingFromRows(rows)
+		if err != nil {
+			return nil, fmt.Errorf("сканирование бронирования: %w", err)
+		}
+		res = append(res, *booking)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("итерация по строкам: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("commit транзакции: %w", err)
+	}
+
+	return res, nil
+}
+

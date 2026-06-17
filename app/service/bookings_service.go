@@ -22,6 +22,10 @@ type BookingsService struct {
 	logger    *zap.Logger
 }
 
+func (s *BookingsService) GetByID(ctx context.Context, bookingID int64) (any, error) {
+	panic("unimplemented")
+}
+
 // NewBookingsService создаёт новый BookingsService.
 func NewBookingsService(repo models.BookingRepository, publisher *messaging.Publisher, logger *zap.Logger) *BookingsService {
 	return &BookingsService{
@@ -115,21 +119,25 @@ func (s *BookingsService) Cancel(ctx context.Context, id int64) error {
 
 // Confirm подтверждает бронирование по ID.
 // Используется обработчиком событий RabbitMQ.
-func (s *BookingsService) Confirm(ctx context.Context, id int64) error {
+// Второй возвращаемый параметр — true, если Catalog подтвердил бронирование,
+// пока оно находилось в статусе cancellation_pending (race condition).
+func (s *BookingsService) Confirm(ctx context.Context, id int64) (bool, error) {
 	booking, err := s.repo.GetByID(ctx, id)
 	if err != nil {
-		return err
+		return false, err
 	}
 
+	raceCondition := booking.Status() == models.BookingStatusCancellationPending
+
 	if err := booking.Confirm(); err != nil {
-		return err
+		return false, err
 	}
 
 	if err := s.repo.Update(ctx, booking); err != nil {
-		return fmt.Errorf("обновление бронирования: %w", err)
+		return false, fmt.Errorf("обновление бронирования: %w", err)
 	}
 
 	s.logger.Info("бронирование подтверждено", zap.Int64("id", id))
 
-	return nil
+	return raceCondition, nil
 }
