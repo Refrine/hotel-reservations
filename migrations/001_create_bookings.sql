@@ -27,3 +27,19 @@ DROP TABLE IF EXISTS bookings;
 -- +goose Up
 ALTER TABLE bookings 
 ADD COLUMN IF NOT EXISTS previous_status VARCHAR(30);
+
+-- +goose Up
+CREATE TABLE IF NOT EXISTS booking_history (
+    id BIGSERIAL PRIMARY KEY,
+    booking_id BIGINT NOT NULL REFERENCES bookings(id),
+    previous_status VARCHAR(50),
+    new_status VARCHAR(50) NOT NULL,
+    changed_by VARCHAR(255) NOT NULL,
+    reason TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_history_booking_id ON booking_history(booking_id);
+
+-- +goose Down
+DROP TABLE IF EXISTS booking_history;

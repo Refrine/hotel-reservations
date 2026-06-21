@@ -27,11 +27,11 @@ type BookingRepository interface {
 	GetStatistics(ctx context.Context, dateFrom, dateTo string) (*StatisticsResult, error)
 
 	GetCancellationPendingOlderThan(ctx context.Context, olderThan time.Duration, limit int) ([]Booking, error)
-
-	
 }
 
-
+func (b BookingRepository) AddHistoryRecord(ctx context.Context, bookingID int64, param any, param4 any, s string, param6 string) {
+	panic("unimplemented")
+}
 
 // BookingFilter содержит параметры фильтрации и пагинации.
 type BookingFilter struct {

@@ -1,5 +1,7 @@
 package dto
 
+import "time"
+
 // CreateBookingRequest -- запрос на создание бронирования.
 type CreateBookingRequest struct {
 	UserID     int64  `json:"userId"`
@@ -70,3 +72,13 @@ type ResourceStats struct {
 
 // DateFormat -- формат даты для JSON-сериализации.
 const DateFormat = "2006-01-02"
+
+
+type HistoryRecord struct {
+	ID             int64     `json:"id"`
+	PreviousStatus *string   `json:"previous_status"`
+	NewStatus      string    `json:"new_status"`
+	ChangedBy      string    `json:"changed_by"`
+	Reason         string    `json:"reason"`
+	CreatedAt      time.Time `json:"created_at"`
+}

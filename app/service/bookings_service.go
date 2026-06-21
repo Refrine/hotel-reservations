@@ -141,3 +141,4 @@ func (s *BookingsService) Confirm(ctx context.Context, id int64) (bool, error) {
 
 	return raceCondition, nil
 }
+

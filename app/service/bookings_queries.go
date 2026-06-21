@@ -16,6 +16,11 @@ type BookingsQueries struct {
 	logger *zap.Logger
 }
 
+// GetHistory implements [handler.BookingQueries].
+func (q *BookingsQueries) GetHistory(ctx context.Context, bookingID int64, page int, size int) ([]dto.HistoryRecord, int64, error) {
+	panic("unimplemented")
+}
+
 // NewBookingsQueries создаёт новый BookingsQueries.
 func NewBookingsQueries(repo models.BookingRepository, logger *zap.Logger) *BookingsQueries {
 	return &BookingsQueries{
@@ -125,6 +130,3 @@ func mapBookingToResponse(b *models.Booking) dto.BookingResponse {
 		CreatedAt:  b.CreatedAt().Format("2006-01-02T15:04:05Z07:00"),
 	}
 }
-
-
-

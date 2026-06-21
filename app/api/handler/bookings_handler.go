@@ -27,6 +27,7 @@ type BookingQueries interface {
 	GetByFilter(ctx context.Context, req dto.GetBookingsByFilterRequest) (dto.PagedResponse[dto.BookingResponse], error)
 	GetStatus(ctx context.Context, id int64) (models.BookingStatus, error)
 	GetStatistics(ctx context.Context, dateFrom, dateTo string)(dto.StatiscticsResponse, error)
+	GetHistory(ctx context.Context, bookingID int64, page, size int) ([]dto.HistoryRecord, int64, error)
 }
 
 // BookingsHandler содержит обработчики HTTP-запросов для бронирований.
@@ -217,3 +218,37 @@ func writeProblemDetails(w http.ResponseWriter, status int, title, detail string
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(pd)
 }
+
+func (h *BookingsHandler) GetHistory(w http.ResponseWriter, r *http.Request) {
+	id, err := parseIDParam(r)
+	if err != nil {
+		writeProblemDetails(w, http.StatusBadRequest, "Некорректный ID", err.Error())
+		return
+	}
+
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	if page < 1 {
+		page = 1
+	}
+	
+	size, _ := strconv.Atoi(r.URL.Query().Get("size"))
+	if size < 1 || size > 100 {
+		size = 25
+	}
+
+	records, total, err := h.queries.GetHistory(r.Context(), id, page, size)
+	if err != nil {
+		h.logger.Error("ошибка получения истории", zap.Error(err))
+		writeProblemDetails(w, http.StatusInternalServerError, "Внутренняя ошибка сервера", "")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"records": records,
+		"total":   total,
+		"page":    page,
+		"size":    size,
+	})
+}
+
+

@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"booking-service/app/api/dto"
 	"booking-service/app/models"
 )
 
@@ -278,3 +279,36 @@ func (r *BookingsRepository) GetCancellationPendingOlderThan(ctx context.Context
 	return res, nil
 }
 
+func (r *BookingsRepository) GetHistory(ctx context.Context, bookingID int64, page, size int) ([]dto.HistoryRecord, int64, error) {
+	var total int64
+	r.pool.QueryRow(ctx, "SELECT COUNT(*) FROM booking_history WHERE booking_id = $1", bookingID).Scan(&total)
+
+	offset := (page - 1) * size
+	rows, err := r.pool.Query(ctx, `
+		SELECT id, previous_status, new_status, changed_by, reason, created_at
+		FROM booking_history
+		WHERE booking_id = $1
+		ORDER BY created_at DESC
+		LIMIT $2 OFFSET $3
+	`, bookingID, size, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var records []dto.HistoryRecord
+	for rows.Next() {
+		var r dto.HistoryRecord
+		rows.Scan(&r.ID, &r.PreviousStatus, &r.NewStatus, &r.ChangedBy, &r.Reason, &r.CreatedAt)
+		records = append(records, r)
+	}
+	return records, total, nil
+}
+
+func (r *BookingsRepository) AddHistoryRecord(ctx context.Context, bookingID int64, previousStatus, newStatus, changedBy, reason string) error {
+	_, err := r.pool.Exec(ctx, `
+		INSERT INTO booking_history (booking_id, previous_status, new_status, changed_by, reason)
+		VALUES ($1, $2, $3, $4, $5)
+	`, bookingID, previousStatus, newStatus, changedBy, reason)
+	return err
+}
