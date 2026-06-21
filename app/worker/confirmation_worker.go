@@ -101,7 +101,7 @@ func (w *ConfirmationWorker) processBooking(ctx context.Context, booking *models
 
 	switch job.Status {
 	case "confirmed":
-		if err := w.service.Confirm(ctx, bookingID); err != nil {
+		if _, err := w.service.Confirm(ctx, bookingID); err != nil {
 			logger.Error("ошибка подтверждения бронирования", zap.Error(err))
 			return
 		}
@@ -120,4 +120,8 @@ func (w *ConfirmationWorker) processBooking(ctx context.Context, booking *models
 	default:
 		logger.Warn("неизвестный статус задания", zap.String("status", job.Status))
 	}
+
+
+	
+
 }

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
@@ -25,6 +26,8 @@ type BookingQueries interface {
 	GetByID(ctx context.Context, id int64) (dto.BookingResponse, error)
 	GetByFilter(ctx context.Context, req dto.GetBookingsByFilterRequest) (dto.PagedResponse[dto.BookingResponse], error)
 	GetStatus(ctx context.Context, id int64) (models.BookingStatus, error)
+	GetStatistics(ctx context.Context, dateFrom, dateTo string)(dto.StatiscticsResponse, error)
+	GetHistory(ctx context.Context, bookingID int64, page, size int) ([]dto.HistoryRecord, int64, error)
 }
 
 // BookingsHandler содержит обработчики HTTP-запросов для бронирований.
@@ -127,6 +130,50 @@ func (h *BookingsHandler) GetStatus(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, dto.BookingStatusResponse{Status: string(status)})
 }
 
+
+// GetStatistics обрабатывает GET /api/bookings/statistics
+func (h *BookingsHandler) GetStatistics(w http.ResponseWriter, r *http.Request) {
+	dateFrom := r.URL.Query().Get("dateFrom")
+	dateTo := r.URL.Query().Get("dateTo")
+
+	if dateFrom == "" || dateTo == "" {
+		writeProblemDetails(w, http.StatusBadRequest,
+			"Ошибка валидации",
+			"параметры dateFrom и dateTo обязательны")
+		return
+	}
+
+	if _, err := time.Parse(dto.DateFormat, dateFrom); err != nil {
+		writeProblemDetails(w, http.StatusBadRequest,
+			"Ошибка валидации",
+			"неверный формат dateFrom")
+		return
+	}
+
+	if _, err := time.Parse(dto.DateFormat, dateTo); err != nil {
+		writeProblemDetails(w, http.StatusBadRequest,
+			"Ошибка валидации",
+			"неверный формат dateTo")
+		return
+	}
+
+	if dateTo < dateFrom {
+		writeProblemDetails(w, http.StatusBadRequest,
+			"Ошибка валидации",
+			"dateTo не может быть раньше dateFrom")
+		return
+	}
+
+	stats, err := h.queries.GetStatistics(r.Context(), dateFrom, dateTo)
+	if err != nil {
+		h.handleServiceError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, stats)
+}
+
+
 // handleServiceError маппит доменные ошибки на HTTP-ответы.
 func (h *BookingsHandler) handleServiceError(w http.ResponseWriter, err error) {
 	switch {
@@ -171,3 +218,37 @@ func writeProblemDetails(w http.ResponseWriter, status int, title, detail string
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(pd)
 }
+
+func (h *BookingsHandler) GetHistory(w http.ResponseWriter, r *http.Request) {
+	id, err := parseIDParam(r)
+	if err != nil {
+		writeProblemDetails(w, http.StatusBadRequest, "Некорректный ID", err.Error())
+		return
+	}
+
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	if page < 1 {
+		page = 1
+	}
+	
+	size, _ := strconv.Atoi(r.URL.Query().Get("size"))
+	if size < 1 || size > 100 {
+		size = 25
+	}
+
+	records, total, err := h.queries.GetHistory(r.Context(), id, page, size)
+	if err != nil {
+		h.logger.Error("ошибка получения истории", zap.Error(err))
+		writeProblemDetails(w, http.StatusInternalServerError, "Внутренняя ошибка сервера", "")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"records": records,
+		"total":   total,
+		"page":    page,
+		"size":    size,
+	})
+}
+
+

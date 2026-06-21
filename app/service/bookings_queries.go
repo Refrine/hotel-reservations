@@ -16,6 +16,11 @@ type BookingsQueries struct {
 	logger *zap.Logger
 }
 
+// GetHistory implements [handler.BookingQueries].
+func (q *BookingsQueries) GetHistory(ctx context.Context, bookingID int64, page int, size int) ([]dto.HistoryRecord, int64, error) {
+	panic("unimplemented")
+}
+
 // NewBookingsQueries создаёт новый BookingsQueries.
 func NewBookingsQueries(repo models.BookingRepository, logger *zap.Logger) *BookingsQueries {
 	return &BookingsQueries{
@@ -82,6 +87,34 @@ func (q *BookingsQueries) GetByFilter(ctx context.Context, req dto.GetBookingsBy
 		TotalCount: totalCount,
 		Page:       filter.Page,
 		Size:       filter.Size,
+	}, nil
+}
+
+// GetStatistics возвращает агрегированную статистику бронирований за период
+func (q *BookingsQueries) GetStatistics(ctx context.Context, dateFrom, dateTo string) (dto.StatiscticsResponse, error) {
+	result, err := q.repo.GetStatistics(ctx, dateFrom, dateTo)
+	if err != nil {
+		return dto.StatiscticsResponse{}, fmt.Errorf("получение статистики: %w", err)
+	}
+
+	statusBreakdown := make(map[string]int64, len(result.StatusBreakdown))
+	for status, count := range result.StatusBreakdown {
+		statusBreakdown[string(status)] = count
+	}
+
+	topResources := make([]dto.ResourceStats, 0, len(result.TopResources))
+	for _, resource := range result.TopResources {
+		topResources = append(topResources, dto.ResourceStats{
+			ResourceID:   resource.ResourceID,
+			ResourceName: resource.ResourceName,
+			BookingCount: resource.BookingCount,
+		})
+	}
+
+	return dto.StatiscticsResponse{
+		TotalBookings:   result.TotalBookings,
+		StatusBreakdown: statusBreakdown,
+		TopResources:    topResources,
 	}, nil
 }
 

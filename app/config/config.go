@@ -46,6 +46,7 @@ type CatalogConfig struct {
 type WorkerConfig struct {
 	ConfirmationInterval time.Duration `envconfig:"WORKER_CONFIRMATION_INTERVAL" default:"30s"`
 	ConfirmationBatch    int           `envconfig:"WORKER_CONFIRMATION_BATCH" default:"10"`
+	CancellationTimeout time.Duration `envconfig:"CANCELLATION_PENDING_TIMEOUT" default:"5m"`
 }
 
 type RabbitMQConfig struct {

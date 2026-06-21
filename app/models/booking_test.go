@@ -48,6 +48,8 @@ func TestConfirm_FromAwaitsConfirmation(t *testing.T) {
 	assert.Equal(t, models.BookingStatusConfirmed, booking.Status())
 }
 
+
+
 func TestConfirm_FromConfirmed_Error(t *testing.T) {
 	booking := createTestBooking(t)
 	_ = booking.Confirm()
@@ -85,6 +87,8 @@ func TestCancel_FromConfirmed_PastStartDate_Error(t *testing.T) {
 		time.Now().AddDate(0, 0, -3),
 		time.Now().AddDate(0, 0, -1),
 		time.Now().AddDate(0, 0, -5),
+		nil,
+		nil,
 	)
 
 	err := b.Cancel(time.Now())

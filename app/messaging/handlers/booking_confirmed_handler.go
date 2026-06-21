@@ -3,11 +3,13 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"go.uber.org/zap"
 
 	"booking-service/app/messaging"
+	"booking-service/app/models"
 	"booking-service/app/service"
 )
 
@@ -41,9 +43,24 @@ func (h *BookingConfirmedHandler) Handle(ctx context.Context, body []byte) error
 		zap.Int64("bookingId", bookingID),
 		zap.Int64("catalogJobId", event.Id),
 	)
-
-	if err := h.service.Confirm(ctx, bookingID); err != nil {
+	
+	raceCondition, err := h.service.Confirm(ctx, bookingID)
+	if err != nil {
+		if errors.Is(err, models.ErrInvalidStatusTransition) {
+			h.logger.Warn("не удалось подтвердить бронирование: недопустимый переход статуса",
+				zap.Int64("bookingId", bookingID),
+				zap.Error(err),
+			)
+			return nil 
+		}
 		return fmt.Errorf("подтверждение бронирования %d: %w", bookingID, err)
+	}
+
+	if raceCondition {
+		h.logger.Warn("обнаружен race condition: Catalog подтвердил бронирование, пока оно ожидало отмены",
+			zap.Int64("bookingId", bookingID),
+			zap.Int64("catalogJobId", event.Id),
+		)
 	}
 
 	h.logger.Info("бронирование подтверждено через событие", zap.Int64("bookingId", bookingID))
