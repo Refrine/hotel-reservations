@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // CreateBookingJobCommand -- команда на создание задания в Catalog.
@@ -41,6 +42,21 @@ type BookingJobDenied struct {
 	Reason    string `json:"Reason"`
 }
 
+
+// BookingStatusChangedEvent -- событие изменения статуса бронирования
+type BookingStatusChangedEvent struct {
+    BookingID      int64     `json:"booking_id"`
+    PreviousStatus string    `json:"previous_status"`
+    NewStatus      string    `json:"new_status"`
+    Reason         string    `json:"reason"`
+    ChangedBy      string    `json:"changed_by"`
+    Timestamp      time.Time `json:"timestamp"`
+}
+
+
+
+
+
 // Routing keys для входящих событий от Catalog (consumer side, Rebus convention).
 const (
 	RoutingKeyBookingJobConfirmed = "BookingService.Catalog.Async.Api.Contracts.Events.BookingJobConfirmed, BookingService.Catalog.Async.Api.Contracts"
@@ -59,7 +75,7 @@ const (
 	RoutingKeyCancelBookingJob = "BookingService.Catalog.Async.Api.Contracts.Requests.CancelBookingJobByRequestIdRequest, BookingService.Catalog.Async.Api.Contracts"
 )
 
-
+const RoutingKeyBookingStatusChanged = "BookingService.Booking.Events.BookingStatusChangedEvent, BookingService.Booking.Events"
 
 // NewMessageID генерирует случайный UUID v4.
 func NewMessageID() string {

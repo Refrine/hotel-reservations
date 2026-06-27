@@ -14,6 +14,9 @@ type Config struct {
 	Catalog  CatalogConfig
 	Worker   WorkerConfig
 	RabbitMQ RabbitMQConfig
+	BookingServiceTopicsExchange string `envconfig:"BOOKING_SERVICE_TOPICS_EXCHANGE" default:"booking-service-topics"`
+    BookingDomainEventsExchange  string `envconfig:"BOOKING_DOMAIN_EVENTS_EXCHANGE" default:"booking-domain-events"`
+    BookingStatusEventsQueue string `envconfig:"BOOKING_STATUS_EVENTS_QUEUE" default:"booking-domain-events.booking-status-events"`
 }
 
 type AppConfig struct {

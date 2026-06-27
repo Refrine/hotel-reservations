@@ -15,17 +15,19 @@ type Publisher struct {
 	conn                  *Connection
 	exchangeName          string
 	publisherExchangeName string
+	eventsExchangeName    string
 	logger                *zap.Logger
 }
 
 // NewPublisher создаёт новый Publisher.
 // exchangeName — exchange для получения ответов (consumer side).
 // publisherExchangeName — exchange для отправки команд в Catalog.
-func NewPublisher(conn *Connection, exchangeName, publisherExchangeName string, logger *zap.Logger) *Publisher {
+func NewPublisher(conn *Connection, exchangeName, publisherExchangeName string, logger *zap.Logger, eventsExchangeName string) *Publisher {
 	return &Publisher{
 		conn:                  conn,
 		exchangeName:          exchangeName,
 		publisherExchangeName: publisherExchangeName,
+		eventsExchangeName:    eventsExchangeName,
 		logger:                logger,
 	}
 }
@@ -110,6 +112,42 @@ func (p *Publisher) publishToCatalog(ctx context.Context, routingKey string, mes
 		zap.String("routingKey", routingKey),
 		zap.String("exchange", p.publisherExchangeName),
 		zap.String("body", string(body)),
+	)
+
+	return nil
+}
+
+
+func (p *Publisher) PublishBookingStatusChanged(
+	ctx context.Context,
+	event BookingStatusChangedEvent,
+) error {
+	body, err := json.Marshal(event)
+	if err != nil {
+		return fmt.Errorf("marshal: %w", err)
+	}
+
+	err = p.conn.Channel().PublishWithContext(
+		ctx,
+		p.eventsExchangeName,              
+		RoutingKeyBookingStatusChanged,    
+		false,
+		false,
+		amqp.Publishing{
+			ContentType:  "application/json",
+			DeliveryMode: amqp.Persistent,
+			Body:         body,
+			Timestamp:    time.Now(),
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("publish status change: %w", err)
+	}
+
+	p.logger.Info("опубликовано событие изменения статуса бронирования",
+		zap.Int64("bookingId", event.BookingID),
+		zap.String("previousStatus", event.PreviousStatus),
+		zap.String("newStatus", event.NewStatus),
 	)
 
 	return nil
