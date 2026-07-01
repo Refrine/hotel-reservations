@@ -65,3 +65,33 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_processed_events_event_id
 -- +goose StatementBegin
 DROP TABLE IF EXISTS processed_events;
 -- +goose StatementEnd
+
+
+-- +goose Up
+-- +goose StatementBegin
+CREATE TABLE IF NOT EXISTS outbox_messages (
+    id BIGSERIAL PRIMARY KEY,
+    exchange VARCHAR(255) NOT NULL,
+    routing_key VARCHAR(255) NOT NULL,
+    payload JSONB NOT NULL,
+    content_type VARCHAR(100) NOT NULL DEFAULT 'application/json',
+    status VARCHAR(50) NOT NULL DEFAULT 'pending',
+    retry_count INT NOT NULL DEFAULT 0,
+    max_retries INT NOT NULL DEFAULT 10,
+    last_error TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_outbox_status_created 
+    ON outbox_messages(status, created_at) 
+    WHERE status = 'pending';
+
+CREATE INDEX IF NOT EXISTS idx_outbox_retry_count 
+    ON outbox_messages(status, retry_count);
+-- +goose StatementEnd
+
+-- +goose Down
+-- +goose StatementBegin
+DROP TABLE IF EXISTS outbox_messages;
+-- +goose StatementEnd
