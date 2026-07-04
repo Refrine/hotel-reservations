@@ -19,6 +19,7 @@ type Config struct {
     BookingStatusEventsQueue string `envconfig:"BOOKING_STATUS_EVENTS_QUEUE" default:"booking-domain-events.booking-status-events"`
 	Outbox OutboxConfig
 	Notification NotificationConfig
+	Cache CacheConfig
 }
 
 type AppConfig struct {
@@ -30,6 +31,11 @@ type AppConfig struct {
 type HTTPConfig struct {
 	Host string `envconfig:"HTTP_HOST" default:"0.0.0.0"`
 	Port int    `envconfig:"HTTP_PORT" default:"8080"`
+}
+
+type CacheConfig struct {
+    TTL             time.Duration `envconfig:"CACHE_TTL" default:"5m"`
+    CleanupInterval time.Duration `envconfig:"CACHE_CLEANUP_INTERVAL" default:"10m"`
 }
 
 type PostgresConfig struct {

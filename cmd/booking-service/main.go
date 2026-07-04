@@ -35,6 +35,21 @@ func main() {
 	defer func() { _ = logger.Sync() }()
 	zap.ReplaceGlobals(logger)
 
+	statsCache := cache.New(cfg.Cache.TTL, cfg.Cache.CleanupInterval)
+
+	bookingsService := service.NewBookingsService(
+        repo,
+        publisher,
+        notificationClient,
+        statsCache,
+        logger,
+    )
+
+	logger.Info("кэш инициализирован",
+        zap.Duration("ttl", cfg.Cache.TTL),
+        zap.Duration("cleanup", cfg.Cache.CleanupInterval),
+    )
+
 	logger.Info("запуск сервиса",
 		zap.String("name", cfg.App.Name),
 		zap.String("env", cfg.App.Environment),

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -14,6 +15,8 @@ import (
 type BookingsQueries struct {
 	repo   models.BookingRepository
 	logger *zap.Logger
+	statsCache *cache.Cache
+    cacheTTL   time.Duration
 }
 
 // GetHistory implements [handler.BookingQueries].
@@ -26,8 +29,16 @@ func NewBookingsQueries(repo models.BookingRepository, logger *zap.Logger) *Book
 	return &BookingsQueries{
 		repo:   repo,
 		logger: logger,
+		tatsCache *cache.Cache,
+    	cacheTTL time.Duration,
 	}
 }
+
+func (s *BookingsService) invalidateCache() {
+    s.statsCache.Flush()
+    s.logger.Debug("кэш статистики сброшен")
+}
+
 
 // GetByID возвращает бронирование по ID.
 func (q *BookingsQueries) GetByID(ctx context.Context, id int64) (dto.BookingResponse, error) {
