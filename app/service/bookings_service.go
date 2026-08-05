@@ -142,3 +142,44 @@ func (s *BookingsService) Confirm(ctx context.Context, id int64) (bool, error) {
 	return raceCondition, nil
 }
 
+func (s *BookingsService) RequestCancellation(ctx context.Context, bookingID, userID int64, reason string) error {
+	booking, err := s.repo.GetByID(ctx, bookingID)
+	if err != nil {
+		return fmt.Errorf("get booking: %w", err)
+	}
+
+	
+	oldStatus := string(booking.Status())
+
+	if err := booking.RequestCancellation(userID, reason); err != nil {
+		return err
+	}
+
+	if err := s.repo.Update(ctx, booking); err != nil {
+		return fmt.Errorf("update booking: %w", err)
+	}
+
+	
+	changedBy := fmt.Sprintf("user_%d", userID)
+	event := messaging.BookingStatusChangedEvent{
+		BookingID:      bookingID,
+		PreviousStatus: oldStatus,
+		NewStatus:      string(booking.Status()),
+		Reason:         reason,
+		ChangedBy:      changedBy,
+		Timestamp:      time.Now(),
+	}
+	if err := s.publisher.PublishBookingStatusChanged(ctx, event); err != nil {
+		s.logger.Error("ошибка публикации события", zap.Error(err))
+	}
+
+	
+	if err := s.publisher.PublishCancelBookingJob(ctx, messaging.CancelBookingJobCommand{
+		EventId:   messaging.NewMessageID(),
+		RequestId: messaging.BookingIDToRequestID(bookingID),
+	}); err != nil {
+		s.logger.Error("ошибка публикации CancelBookingJob", zap.Error(err))
+	}
+
+	return nil
+}
