@@ -18,6 +18,7 @@ type Config struct {
     BookingDomainEventsExchange  string `envconfig:"BOOKING_DOMAIN_EVENTS_EXCHANGE" default:"booking-domain-events"`
     BookingStatusEventsQueue string `envconfig:"BOOKING_STATUS_EVENTS_QUEUE" default:"booking-domain-events.booking-status-events"`
 	Outbox OutboxConfig
+	Notification NotificationConfig
 }
 
 type AppConfig struct {
@@ -51,6 +52,13 @@ type WorkerConfig struct {
 	ConfirmationInterval time.Duration `envconfig:"WORKER_CONFIRMATION_INTERVAL" default:"30s"`
 	ConfirmationBatch    int           `envconfig:"WORKER_CONFIRMATION_BATCH" default:"10"`
 	CancellationTimeout time.Duration `envconfig:"CANCELLATION_PENDING_TIMEOUT" default:"5m"`
+}
+
+type NotificationConfig struct {
+    BaseURL        string        `envconfig:"NOTIFICATION_BASE_URL" default:"http://localhost:9000"`
+    Timeout        time.Duration `envconfig:"NOTIFICATION_TIMEOUT" default:"5s"`
+    MaxRetries     int           `envconfig:"NOTIFICATION_MAX_RETRIES" default:"3"`
+    RetryBaseDelay time.Duration `envconfig:"NOTIFICATION_RETRY_BASE_DELAY" default:"100ms"`
 }
 
 type RabbitMQConfig struct {
