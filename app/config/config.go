@@ -17,6 +17,7 @@ type Config struct {
 	BookingServiceTopicsExchange string `envconfig:"BOOKING_SERVICE_TOPICS_EXCHANGE" default:"booking-service-topics"`
     BookingDomainEventsExchange  string `envconfig:"BOOKING_DOMAIN_EVENTS_EXCHANGE" default:"booking-domain-events"`
     BookingStatusEventsQueue string `envconfig:"BOOKING_STATUS_EVENTS_QUEUE" default:"booking-domain-events.booking-status-events"`
+	Outbox OutboxConfig
 }
 
 type AppConfig struct {
@@ -79,3 +80,9 @@ func Load() (*Config, error) {
 	}
 	return &cfg, nil
 }
+
+type OutboxConfig struct {
+    WorkerInterval time.Duration `envconfig:"OUTBOX_WORKER_INTERVAL" default:"5s"`
+    BatchSize      int           `envconfig:"OUTBOX_BATCH_SIZE" default:"50"`
+    MaxRetries     int           `envconfig:"OUTBOX_MAX_RETRIES" default:"10"`
+}	

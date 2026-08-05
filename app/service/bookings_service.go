@@ -183,3 +183,109 @@ func (s *BookingsService) RequestCancellation(ctx context.Context, bookingID, us
 
 	return nil
 }
+
+
+// Confirm подтверждает бронирование 
+func (s *BookingsService) Confirm(ctx context.Context, id int64) (bool, error) {
+    var oldStatus string
+    var raceCondition bool
+
+    outboxMsg := &models.OutboxMessage{
+        Exchange:    s.eventsExchange,
+        RoutingKey:  messaging.RoutingKeyBookingStatusChanged,
+        ContentType: "application/json",
+        MaxRetries:  s.outboxMaxRetries,
+    }
+
+    err := s.repo.UpdateWithOutbox(ctx, id, func(booking *models.Booking) error {
+        oldStatus = string(booking.Status)
+        raceCondition = booking.Status == models.BookingStatusCancellationPending
+
+        if err := booking.Confirm(); err != nil {
+            return err
+        }
+
+        
+        reason := "Booking confirmed by Catalog"
+        if raceCondition {
+            reason = "Booking confirmed (race condition with cancellation)"
+        }
+
+        event := messaging.BookingStatusChangedEvent{
+            BookingID:      id,
+            PreviousStatus: oldStatus,
+            NewStatus:      string(booking.Status),
+            Reason:         reason,
+            ChangedBy:      "System",
+            Timestamp:      time.Now(),
+        }
+
+        payload, err := json.Marshal(event)
+        if err != nil {
+            return fmt.Errorf("marshal event: %w", err)
+        }
+
+        outboxMsg.Payload = payload
+        return nil
+    }, outboxMsg)
+
+    if err != nil {
+        return false, err
+    }
+
+    s.logger.Info("бронирование подтверждено", zap.Int64("id", id))
+    return raceCondition, nil
+}
+
+// Cancel отменяет бронирование 
+func (s *BookingsService) Cancel(ctx context.Context, id int64) error {
+    var oldStatus string
+
+    outboxMsg := &models.OutboxMessage{
+        Exchange:    s.eventsExchange,
+        RoutingKey:  messaging.RoutingKeyBookingStatusChanged,
+        ContentType: "application/json",
+        MaxRetries:  s.outboxMaxRetries,
+    }
+
+    err := s.repo.UpdateWithOutbox(ctx, id, func(booking *models.Booking) error {
+        oldStatus = string(booking.Status)
+
+        if err := booking.Cancel(time.Now()); err != nil {
+            return err
+        }
+
+        event := messaging.BookingStatusChangedEvent{
+            BookingID:      id,
+            PreviousStatus: oldStatus,
+            NewStatus:      string(booking.Status),
+            Reason:         "Booking cancelled",
+            ChangedBy:      "System",
+            Timestamp:      time.Now(),
+        }
+
+        payload, err := json.Marshal(event)
+        if err != nil {
+            return fmt.Errorf("marshal event: %w", err)
+        }
+
+        outboxMsg.Payload = payload
+        return nil
+    }, outboxMsg)
+
+    if err != nil {
+        return err
+    }
+
+    s.logger.Info("бронирование отменено", zap.Int64("id", id))
+
+    
+    if err := s.publisher.PublishCancelBookingJob(ctx, messaging.CancelBookingJobCommand{
+        EventId:   messaging.NewMessageID(),
+        RequestId: messaging.BookingIDToRequestID(id),
+    }); err != nil {
+        s.logger.Error("ошибка публикации CancelBookingJob", zap.Error(err))
+    }
+
+    return nil
+}

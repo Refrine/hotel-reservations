@@ -33,6 +33,16 @@ type BookingRepository interface {
     MarkEventProcessed(ctx context.Context, eventID, eventType string, bookingID int64) error
     
     ConfirmWithIdempotency(ctx context.Context, bookingID int64, eventID string) (bool, error)
+
+	SaveOutboxMessage(ctx context.Context, msg *OutboxMessage) error
+
+    GetPendingOutboxMessages(ctx context.Context, limit int) ([]OutboxMessage, error)
+
+    MarkOutboxSent(ctx context.Context, id int64) error
+
+    MarkOutboxFailed(ctx context.Context, id int64, errMsg string) error
+	
+    UpdateWithOutbox(ctx context.Context, bookingID int64, updateFn func(*Booking) error, outboxMsg *OutboxMessage) error
 }
 
 func (b BookingRepository) AddHistoryRecord(ctx context.Context, bookingID int64, param any, param4 any, s string, param6 string) {
