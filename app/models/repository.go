@@ -27,6 +27,12 @@ type BookingRepository interface {
 	GetStatistics(ctx context.Context, dateFrom, dateTo string) (*StatisticsResult, error)
 
 	GetCancellationPendingOlderThan(ctx context.Context, olderThan time.Duration, limit int) ([]Booking, error)
+
+	IsEventProcessed(ctx context.Context, eventID string) (bool, error)
+    
+    MarkEventProcessed(ctx context.Context, eventID, eventType string, bookingID int64) error
+    
+    ConfirmWithIdempotency(ctx context.Context, bookingID int64, eventID string) (bool, error)
 }
 
 func (b BookingRepository) AddHistoryRecord(ctx context.Context, bookingID int64, param any, param4 any, s string, param6 string) {

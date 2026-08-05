@@ -10,7 +10,9 @@ const (
 	BookingStatusConfirmed          BookingStatus = "confirmed"
 	BookingStatusCancelled          BookingStatus = "cancelled"
 	BookingStatusCancellationPending BookingStatus = "cancellation_pending"
+	
 )
+
 
 // IsValid проверяет, что статус принадлежит допустимому множеству.
 func (s BookingStatus) IsValid() bool {
