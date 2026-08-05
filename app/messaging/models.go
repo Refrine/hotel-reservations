@@ -59,6 +59,8 @@ const (
 	RoutingKeyCancelBookingJob = "BookingService.Catalog.Async.Api.Contracts.Requests.CancelBookingJobByRequestIdRequest, BookingService.Catalog.Async.Api.Contracts"
 )
 
+
+
 // NewMessageID генерирует случайный UUID v4.
 func NewMessageID() string {
 	b := make([]byte, 16)

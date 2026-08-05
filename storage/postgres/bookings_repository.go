@@ -11,6 +11,8 @@ import (
 
 	"booking-service/app/api/dto"
 	"booking-service/app/models"
+
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 // BookingsRepository реализует models.BookingRepository.
@@ -311,4 +313,57 @@ func (r *BookingsRepository) AddHistoryRecord(ctx context.Context, bookingID int
 		VALUES ($1, $2, $3, $4, $5)
 	`, bookingID, previousStatus, newStatus, changedBy, reason)
 	return err
+}
+
+
+
+func (r *BookingsRepository) ConfirmWithIdempotency(ctx context.Context, bookingID int64, eventID string) (bool, error) {
+    
+    var alreadyProcessed bool
+    err := r.pool.QueryRow(ctx, `
+        SELECT EXISTS(
+            SELECT 1 FROM processed_events WHERE event_id = $1
+        )
+    `, eventID).Scan(&alreadyProcessed)
+    if err != nil {
+        return false, fmt.Errorf("check processed: %w", err)
+    }
+    
+    if alreadyProcessed {
+        return true, nil
+    }
+
+   
+    booking, err := r.GetByID(ctx, bookingID)
+    if err != nil {
+        return false, fmt.Errorf("get booking: %w", err)
+    }
+
+    wasRaceCondition := booking.Status == models.BookingStatusCancellationPending
+
+   
+    if err := booking.Confirm(); err != nil {
+        return wasRaceCondition, err
+    }
+
+    
+    if err := r.Update(ctx, booking); err != nil {
+        return wasRaceCondition, fmt.Errorf("update booking: %w", err)
+    }
+
+    
+    _, err = r.pool.Exec(ctx, `
+        INSERT INTO processed_events (event_id, event_type, booking_id)
+        VALUES ($1, $2, $3)
+        ON CONFLICT (event_id) DO NOTHING
+    `, eventID, "BookingConfirmed", bookingID)
+    if err != nil {
+        var pgErr *pgconn.PgError
+        if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+            return true, nil
+        }
+        return wasRaceCondition, fmt.Errorf("mark processed: %w", err)
+    }
+
+    return wasRaceCondition, nil
 }

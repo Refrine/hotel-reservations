@@ -43,3 +43,25 @@ CREATE INDEX idx_history_booking_id ON booking_history(booking_id);
 
 -- +goose Down
 DROP TABLE IF EXISTS booking_history;
+
+
+
+-- +goose Up
+-- +goose StatementBegin
+CREATE TABLE IF NOT EXISTS processed_events (
+    id BIGSERIAL PRIMARY KEY,
+    event_id VARCHAR(255) NOT NULL,
+    event_type VARCHAR(100) NOT NULL,
+    booking_id BIGINT,
+    processed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_processed_events_event_id 
+    ON processed_events(event_id);
+-- +goose StatementEnd
+
+-- +goose Down
+-- +goose StatementBegin
+DROP TABLE IF EXISTS processed_events;
+-- +goose StatementEnd
