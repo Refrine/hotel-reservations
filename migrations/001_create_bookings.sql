@@ -95,3 +95,52 @@ CREATE INDEX IF NOT EXISTS idx_outbox_retry_count
 -- +goose StatementBegin
 DROP TABLE IF EXISTS outbox_messages;
 -- +goose StatementEnd
+
+
+
+-- +goose Up
+-- +goose StatementBegin
+
+-- индекс для catalog_request_id
+CREATE UNIQUE INDEX IF NOT EXISTS idx_bookings_catalog_request_id 
+    ON bookings(catalog_request_id) 
+    WHERE catalog_request_id IS NOT NULL;
+
+-- индекс для created_at 
+CREATE INDEX IF NOT EXISTS idx_bookings_created_at 
+    ON bookings(created_at);
+
+-- иоставной индекс для статистики по статусам
+CREATE INDEX IF NOT EXISTS idx_bookings_created_status 
+    ON bookings(created_at, status);
+
+-- индекс для статистики по ресурсам
+CREATE INDEX IF NOT EXISTS idx_bookings_created_resource 
+    ON bookings(created_at, resource_id);
+
+-- индекс для outbox worker
+CREATE INDEX IF NOT EXISTS idx_outbox_status_created 
+    ON outbox_messages(status, created_at) 
+    WHERE status = 'pending';
+
+-- индекс для outbox с retry_count
+CREATE INDEX IF NOT EXISTS idx_outbox_status_retry 
+    ON outbox_messages(status, retry_count) 
+    WHERE status = 'pending';
+
+-- индекс для истории бронирований
+CREATE INDEX IF NOT EXISTS idx_booking_history_booking_created 
+    ON booking_history(booking_id, created_at DESC);
+
+
+
+-- +goose Down
+-- +goose StatementBegin
+DROP INDEX IF EXISTS idx_bookings_catalog_request_id;
+DROP INDEX IF EXISTS idx_bookings_created_at;
+DROP INDEX IF EXISTS idx_bookings_created_status;
+DROP INDEX IF EXISTS idx_bookings_created_resource;
+DROP INDEX IF EXISTS idx_outbox_status_created;
+DROP INDEX IF EXISTS idx_outbox_status_retry;
+DROP INDEX IF EXISTS idx_booking_history_booking_created;
+-- +goose StatementEnd
